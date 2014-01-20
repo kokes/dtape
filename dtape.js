@@ -1,7 +1,5 @@
 var DTape = function () { that = this; }
 
-DTape.prototype={that:this};
-
 DTape.prototype = {
   tokens : [],
   variables : { global : {} }, // not really globals, just in the general scope; TODO: refactor
@@ -34,35 +32,6 @@ DTape.prototype.display = function(s) {
 	}
 
 }
-
-// TODOs:
-// delete unused variables on the way
-// make the tokenizer less hard coded
-
-// ternary ?:
-// brackets
-// booleans
-// everything else :)
-// multiline comments
-
-// handle scope
-
-// IMPLEMENT
-// Precedence climbing method
-
-// resolve transposition sign (') versus 'quotations'
-
-// easy:
-// string escaping not supported
-
-
-// reading
-// http://en.wikipedia.org/wiki/Shunting_yard_algorithm
-// http://en.wikipedia.org/wiki/Reverse_Polish_notation
-
-
-// add line/position to tokens for easier troubleshooting
-// add <> operator
 DTape.prototype.syntax = {
   'OPERATOR' : { // nest these four groups in an object, like .syntax or something
         '+' : 'ADD',
@@ -232,7 +201,7 @@ DTape.prototype.interpret.oneToken = function() {
 	var variable = that.variables.global[token.value]; // TODO: update for non-'globals'
 
 	// TODO: DEBUG ONLY, dummy out
-	if (token.value == '#') {
+	if (token.value == '#') { // just to see what's up
 		console.log(that.tokens);
 		console.log(that.variables);
 		return;
@@ -241,7 +210,7 @@ DTape.prototype.interpret.oneToken = function() {
 	switch (token.type) {
 		case 'STRING_LITERAL':
 			if (variable !== undefined)
-				that.display(variable); // TODO: display some sugar around it?, maybe have .display() handle it all?
+				that.display(variable);
 			else
 				that.error('Variable "' + token.value + '" does not exist.')
 			return;
@@ -256,8 +225,7 @@ DTape.prototype.interpret.oneToken = function() {
 		// TODO: add support for hashbang (call last command)
 
 		default:
-
-		that.error('Command "' + token.value + '" unrecognized')
+			that.error('Command "' + token.value + '" unrecognized')
 	}
 }
 
