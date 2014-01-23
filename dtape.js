@@ -1,9 +1,14 @@
+// TODO: compile all function declarations into JS?
+// TODO: have an environments.js file, where you handle node/web/C/… separately
+// each object will have an ‘each’ method
+//	access these methods through ‘.’ or ‘$’?
 var DTape = function () { that = this; }
 
 DTape.prototype = {
   tokens : [],
   variables : { global : {} }, // not really globals, just in the general scope; TODO: refactor
-  functions : {}
+  functions : {},
+  bytecode : []
 }
 
 
@@ -28,10 +33,11 @@ DTape.prototype.display = function(s) {
 			break;
 
 		default:
-			console.log("Can't recognize command", s);	
+			that.error("Can't recognize command " + s);	
 	}
 
 }
+// TODO: MAKE NEWLINE A TOKEN
 DTape.prototype.syntax = {
   'OPERATOR' : { // nest these four groups in an object, like .syntax or something
         '+' : 'ADD',
@@ -58,8 +64,8 @@ DTape.prototype.syntax = {
         ')' : 'ROUND_CLOSE',
         '[' : 'SQUARE_OPEN',
         ']' : 'SQUARE_CLOSE',
-        '{' : 'SQUIGGLY_OPEN', // TODO: name?
-        '}' : 'SQUIGGLY_CLOSE'
+        '{' : 'CURLY_OPEN',
+        '}' : 'CURLY_CLOSE'
   },
   'SYMBOL' : {
         ',' : 'COMMA',
@@ -92,6 +98,7 @@ DTape.prototype.tokenize = function (s) {
     matched = false; // if 'continue' cannot be invoked, use this dummy
     ch = s.charAt(pos); // we're working with this character
     la = (pos == len-1) ? null : s.charAt(pos+1); // lookahead
+    pr = (pos == 0) ? null : s.charAt(pos-1);
 
     if (ch == " ") {
       pos++;
@@ -123,6 +130,12 @@ DTape.prototype.tokenize = function (s) {
 
     // TODO
       // if previous token is ']' or string literal, then ' is transposition
+    if (pr == ')' || (pr >= 0 && pr <= 9) || (pr >= 'a' && pr <= 'z')
+          || (pr >= 'A' && pr <= 'Z') || pr == ']') {
+      this.addToken('SYMBOL_APOSTROPHE', "'");
+      pos++;
+      continue;
+    }
 
     // MATCH STRINGS
     // only allow for ' ' strings at this point
@@ -171,12 +184,13 @@ DTape.prototype.tokenize = function (s) {
 
   return this.tokens;
 }
-DTape.prototype.interpret = function() {
-	var ln = this.tokens.length;
-	var ip = this.interpret;
+// TODO: let's build an AST (Parr)
+DTape.prototype.parse = function() {
+	ln = this.tokens.length;
+	pr = this.parse;
 
 	if (ln == 1) {
-		ip.oneToken();
+		pr.oneToken();
 
 		return true;
 	}
@@ -185,44 +199,44 @@ DTape.prototype.interpret = function() {
 	if (ln > 2 && this.tokens[0].type == 'STRING_LITERAL'
 			&& this.tokens[1].type == 'SYMBOL_ASSIGNMENT') {
 		
-		ip.assignment();
+		pr.assignment();
 
 		return true;
 	}
 
-	this.error("tooo complicated at this point");
+	this.error("tooo complicated at this point"); // TODO
+
+	delete ln, pr;
 	
 	return true; // or what?
 }
 
+DTape.prototype.parse.addInstruction = function(name, obj) {
+	// TODO: some sort of validation?
+	that.bytecode[parseInt(that.bytecode.length)] = [];
+	that.bytecode[parseInt(that.bytecode.length)-1][name] = obj;
+}
+
 // if one token passed
-DTape.prototype.interpret.oneToken = function() {
+DTape.prototype.parse.oneToken = function() {
 	var token = that.tokens[0];
-	var variable = that.variables.global[token.value]; // TODO: update for non-'globals'
+//	var variable = that.variables.global[token.value]; // TODO: update for non-'globals'
 
 	// TODO: DEBUG ONLY, dummy out
 	if (token.value == '#') { // just to see what's up
-		console.log(that.tokens);
-		console.log(that.variables);
+		console.log(that.bytecode);
 		return;
 	}
 	
 	switch (token.type) {
 		case 'STRING_LITERAL':
-			if (variable !== undefined)
-				that.display(variable);
-			else
-				that.error('Variable "' + token.value + '" does not exist.')
-			return;
-			break;
-
 		case 'NUMBER':
 		case 'STRING':
-			that.display({value: token.value, type: token.type});
+			pr.addInstruction("display", { value: token.value, type: token.type});
 			return;
 			break;
 
-		// TODO: add support for hashbang (call last command)
+		// TODO: add support for hashbang (call last command), only if ENV=console
 
 		default:
 			that.error('Command "' + token.value + '" unrecognized')
@@ -231,19 +245,36 @@ DTape.prototype.interpret.oneToken = function() {
 
 // 'string_literal = ' detected
 // what if 'a==2' is passed? Divert it then.
-DTape.prototype.interpret.assignment = function () {
+DTape.prototype.parse.assignment = function () {
 	// TODO: check legality
 	// TODO: SCOPE
 
 	if (that.tokens[2].type !== 'NUMBER' && that.tokens[2].type !== 'STRING') {
 		that.error('I can\'t do this assignment yet.');
+		return false;
 	}
 
-	that.variables.global[that.tokens[0].value] = {
-		'name' : that.tokens[0].value,
-		'value' : that.tokens[2].value,
-		'type' : that.tokens[2].type
+	if (ln == 3) {
+		pr.addInstruction("assign", {
+			'name' : that.tokens[0].value,
+			'value' : that.tokens[2].value,
+			'type' : that.tokens[2].type
+		});
+		return true;
 	}
+
+	that.error('Can\'t do this yet');
+	return false;
+}
+DTape.prototype.interpret = function() {
+	bc = that.bytecode;
+	//console.log(bc);
+
+	for (j in bc) {
+		//
+	}
+
+	return true;
 }
 var readline = require('readline'),
   rl = readline.createInterface(process.stdin, process.stdout),
@@ -259,7 +290,8 @@ rl.on('line', function(line) {
   else
   	dtsess.tokenize(line); // otherwise just tokenize
 
-  dtsess.interpret(); // TODO: do this automatically somehow, probably in the tokenizer
+  dtsess.parse(); // TODO: do this automatically somehow, probably in the tokenizer
+  dtsess.interpret();
 
   //rl.setPrompt(prefix, prefix.length);
   rl.prompt();

@@ -12,7 +12,8 @@ rl.on('line', function(line) {
   else
   	dtsess.tokenize(line); // otherwise just tokenize
 
-  dtsess.interpret(); // TODO: do this automatically somehow, probably in the tokenizer
+  dtsess.parse(); // TODO: do this automatically somehow, probably in the tokenizer
+  dtsess.interpret();
 
   //rl.setPrompt(prefix, prefix.length);
   rl.prompt();
